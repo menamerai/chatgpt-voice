@@ -7,6 +7,8 @@ import threading
 import pyaudio
 import whisper
 import dotenv
+import gtts
+import playsound
 
 from revChatGPT.V1 import Chatbot
 
@@ -18,6 +20,7 @@ class VoiceRecorder:
 
         self.whisper_model = whisper.load_model("base")
         self.current_directive = ""
+        self.current_answer = ""
 
         self.chatbot = Chatbot(config={
             "access_token": self.config["ACCESS_TOKEN"],
@@ -82,10 +85,23 @@ class VoiceRecorder:
         self.current_directive = self.whisper_model.transcribe("audio.wav", fp16=False)["text"]
         print(self.current_directive)
         prev_text = ""
+        self.current_answer = ""
         for data in self.chatbot.ask(self.current_directive):
             message = data["message"][len(prev_text):]
             self.chatbot_textarea.insert("end", message)
             prev_text = data["message"]
+            self.current_answer += message
+
+        try:
+            tts = gtts.gTTS(self.current_answer)
+            tts.save("audio.mp3")
+            playsound.playsound("audio.mp3")
+            playsound.close()
+        except:
+            pass
+        finally:
+            if os.path.exists("audio.mp3"):
+                os.remove("audio.mp3")
 
         self.button.configure(state="normal")
 
