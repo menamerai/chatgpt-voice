@@ -1,1 +1,1 @@
-# davinci-voice
+# chatgpt voice assistant pipeline
