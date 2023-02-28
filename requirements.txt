@@ -1,7 +1,6 @@
-gTTS==2.3.1
+customtkinter==5.1.2
 openai_whisper==20230124
-playsound==1.2.2
 PyAudio==0.2.13
 python-dotenv==1.0.0
-revChatGPT==2.3.15
+revChatGPT==2.3.16
 whisper==1.1.10
