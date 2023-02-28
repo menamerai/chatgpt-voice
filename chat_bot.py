@@ -1,8 +1,12 @@
 from dotenv import dotenv_values
 from revChatGPT.V1 import Chatbot
+from playsound import playsound
 import pyaudio
 import whisper
 import wave
+import time
+import gtts
+import os
 
 config = dotenv_values(".env")
 
@@ -10,36 +14,61 @@ chatgpt = Chatbot(config={
     "access_token": config["ACCESS_TOKEN"],
 })
 
+whisper_model = whisper.load_model("base")
+
 while True:
     directive = input("Enter a directive(r/q): ")
     if directive == "q":
         break
     elif directive == "r":
-        # Record audio
-        FORMAT = pyaudio.paInt16
-        CHANNELS = 1
-        RATE = 16000
-        CHUNK = 1024
-        RECORD_SECONDS = 5
-        WAVE_OUTPUT_FILENAME = "output.wav"
-        stream = pyaudio.PyAudio().open(format=FORMAT, channels=CHANNELS,
-                                        rate=RATE, input=True,  
-                                        frames_per_buffer=CHUNK)
-        print("recording...")
+        # Record audio for ten seconds
+        print("Recording audio...")
+        p = pyaudio.PyAudio()
+        stream = p.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=1024)
         frames = []
-        for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-            data = stream.read(CHUNK)
+        for i in range(0, int(16000 / 1024 * 10)):
+            data = stream.read(1024)
             frames.append(data)
-        print("finished recording")
+            # print every second
+            if i % 160 == 0:
+                print(".", end="", flush=True)
+
+        print()
         stream.stop_stream()
         stream.close()
-        pyaudio.PyAudio().terminate()
+        p.terminate()
+        wf = wave.open("audio.wav", "wb")
+        wf.setnchannels(1)
+        wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
+        wf.setframerate(16000)
+        wf.writeframes(b"".join(frames))
+        wf.close()
 
-        waveFile = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
-        waveFile.setnchannels(CHANNELS)
-        waveFile.setsampwidth(pyaudio.PyAudio().get_sample_size(FORMAT))
-        waveFile.setframerate(RATE)
-        waveFile.writeframes(b''.join(frames))
-        waveFile.close()
-        
+        # Convert audio to text
+        print("User: ")
+        result = whisper_model.transcribe("audio.wav", fp16=False)
+        print(result["text"])
+
+        print("Chatbot: ")
+        prev_text = ""
+        whole_text = ""
+        for data in chatgpt.ask(
+            result["text"],
+        ):
+            message = data["message"][len(prev_text) :]
+            print(message, end="", flush=True)
+            prev_text = data["message"]
+            whole_text += message
+        print()
+
+        # Convert text to audio
+        tts = gtts.gTTS(whole_text, lang="en")
+        tts.save("audio.mp3")
+        try:
+            playsound("audio.mp3")
+        except Exception as e:
+            print(e)
+        finally:
+            os.remove("audio.mp3")
+            os.remove("audio.wav")
 
